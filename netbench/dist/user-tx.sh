@@ -8,6 +8,8 @@ cd $(dirname $1)/..   # goto netbench testdir (=resdir/..)
 pkt_len=60
 [ $# -ge 1 ] && pkt_len=$1
 
+ethtool -A $src_netif autoneg off rx off tx off
+ethtool -K $src_netif tso off lro off gro off gso off tx off rx off
 ifconfig $src_netif up
 ip addr flush dev $src_netif   # don't want irrelevant traffic to bother us
 src_nic=$(get_nic_name $src_netif)

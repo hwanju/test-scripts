@@ -4,6 +4,8 @@ cd $(dirname $1)/..   # goto netbench testdir (=resdir/..)
 . dist/common.sh
 ### end of prolog
 
+ethtool -A $dst_netif autoneg off rx off tx off   # disable flow control
+ethtool -K $dst_netif tso off lro off gro off gso off tx off rx off
 ifconfig $dst_netif up
 ip addr flush dev $dst_netif   # don't want irrelevant traffic to bother us
 dst_nic=$(get_nic_name $dst_netif)

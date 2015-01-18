@@ -29,12 +29,16 @@ def matched_values(pat, string):
 
 nfnewnic_pps_pat = re.compile(r'(\d+\.\d+) pps')
 def nfnewnic_pps(string):
-    return float(matched_values(nfnewnic_pps_pat, string)[0])
+    results = nfnewnic_pps_pat.findall(string)
+    return sum(map(float, results)) / float(len(results))
 
 netmap_pps_pat = re.compile(r'Speed: (\d+\.\d+) ([MK])pps')
 def netmap_pps(string):
-    pps , mag = matched_values(netmap_pps_pat, string)
-    return float(pps) * 1000 if mag == 'K' else float(pps) * 1000000
+    total_pps = 0.0
+    results = netmap_pps_pat.findall(string)
+    for pps, mag in results:
+        total_pps += float(pps) * 1000 if mag == 'K' else float(pps) * 1000000
+    return total_pps / float(len(results))
 
 pps_func = {
         'nfnewnic': nfnewnic_pps,

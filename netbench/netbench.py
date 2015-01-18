@@ -18,9 +18,11 @@ host_prefix_cmds = {'local': ''}
 ip_prefix = '192.168.234.'
 last_host_id = 1
 host_ips = {'local': {}, 'remote': {}}
+pci_gens = {'local': {}, 'remote': {}}
 priv_args = ['']
 LTOR, RTOL = 1, 2
 direction = LTOR | RTOL
+nr_runs = 1
 
 def get_ip():
     global last_host_id
@@ -55,20 +57,25 @@ def sanity_check():
         print >>sys.stderr, "Error: private args must not be used with multiple tests"
         show_usage_and_exit()
 
-def run_cmd(cmd, verbose=None):
+def run_cmd(cmd, output=False, verbose=False):
     try:
         if verbose:
             print cmd
+        if output:
+            return subprocess.check_output(cmd.split())
         subprocess.check_call(cmd.split())
+        return True
     except:
         if verbose:
             print >>sys.stderr, "Error: failed to execute '%s'" % cmd
+        if output:
+            return ""
         return False
-    return True
 
 def setup_hosts():
     global resdir
-    resdir = testdir + '/' + 'results-' + ','.join(tests) + time.strftime("-%b%d%Y_%H%M%S")
+    if resdir == None:
+        resdir = testdir + '/' + 'results-' + ','.join(tests) + time.strftime("-%b%d%Y_%H%M%S")
     for prefix in host_prefix_cmds.itervalues():
         run_cmd('%s mkdir -p %s' % (prefix, resdir))
 
@@ -95,8 +102,10 @@ def init_hosts():
         for netif in set([x[0 if site == 'local' else 1] for x in nicpairs]):
             nic = get_nic_name(netif)
             ip = get_ip()
+            pci_gen = run_cmd('%s %s/dist/getconf.sh %s %s %s' % (host_prefix_cmds[site], testdir, netif, site[0], resdir), output=True)
             host_ips[site][netif] = ip
-            print '%s: %s(%s) is assigned %s' % (site, netif, nic, ip)
+            pci_gens[site][netif] = pci_gen
+            print '%s: %s(%s,%s) is assigned %s' % (site, netif, pci_gen, nic, ip)
 
 def run_test(test, lif, rif, l2r):
     # l2r: if local to remote, True, otherwise False
@@ -116,7 +125,7 @@ def run_test(test, lif, rif, l2r):
     # if -p is specified, it determines # of runs for each test with different priv args
     # otherwise, priv_args has one empty string, so test is conducted once
     for parg in priv_args:
-        result_fn_prefix = resdir + "/%s_%s%s-%s%s%s" % (test, tx_if, tx_site[0], rx_if, rx_site[0], "_%s" % parg if parg != '' else '')
+        result_fn_prefix = resdir + "/%s_%s%s%s-%s%s%s%s" % (test, tx_if, pci_gens[tx_site][tx_if], tx_site[0], rx_if, pci_gens[rx_site][rx_if], rx_site[0], "_%s" % parg if parg != '' else '')
         # from 2nd arg (1st arg is result_fn)
         remaining_args = '%s %s %s %s %s' % (tx_if, tx_ip, rx_if, rx_ip, ' '.join(parg.split('.')))
         # prepare rx if any
@@ -137,18 +146,19 @@ def run_test(test, lif, rif, l2r):
 
 def start_tests():
     for test in tests:
-        for lif, rif in nicpairs:    # local netif, remote netif
-            if direction & LTOR:
-                run_test(test, lif, rif, True)
-            if direction & RTOL:
-                run_test(test, lif, rif, False)
+        for i in range(nr_runs):
+            for lif, rif in nicpairs:    # local netif, remote netif
+                if direction & LTOR:
+                    run_test(test, lif, rif, True)
+                if direction & RTOL:
+                    run_test(test, lif, rif, False)
 
 def fetch_results():
     run_cmd('scp root@%s:%s/* %s/' % (remote_host, resdir, resdir))
 
 if __name__ == '__main__':
     # parse args
-    opts, args = getopt.getopt(sys.argv[1:], 'h:n:t:d:p:D:')
+    opts, args = getopt.getopt(sys.argv[1:], 'h:n:t:d:r:p:D:N:')
     for opt, arg in opts:
         if opt == '-h':
             remote_host = arg
@@ -159,10 +169,14 @@ if __name__ == '__main__':
             tests = arg.split(",")
         if opt == '-d':
             testdir = arg
+        if opt == '-r':
+            resdir = arg
         if opt == '-p':
             priv_args = arg.split(",")
         if opt == '-D':
             direction = int(arg)
+        if opt == '-N':
+            nr_runs = int(arg)
 
     sanity_check()
     setup_hosts()

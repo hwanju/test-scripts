@@ -5,4 +5,4 @@ cd $(dirname $1)/..   # goto netbench testdir (=resdir/..)
 ### end of prolog
 
 ifconfig $dst_netif $dst_ip up
-iperf -B $dst_ip -s > $resfn &
+iperf -B $dst_ip -s >> $resfn &

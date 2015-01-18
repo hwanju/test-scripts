@@ -68,6 +68,11 @@ def user_get_thput(nic, kind, out_files):
 avail_kinds = {
         'user': ('pps', 'bw', 'rawbw')
 }
+ylims = {
+        'pps': [0, 15500],
+        'bw': [0, 10],
+        'rawbw': [0, 10.5]
+}
 
 def user_plot():
     global kinds
@@ -84,6 +89,7 @@ def user_plot():
             nic = get_nic_name(netif)
             unit, t = user_get_thput(nic, kind, out_files)
             x, y = zip(*sorted(t.items()))
+            ax.set_ylim(ylims[kind])
             ax.plot(x, y, styles[nic], label=nic)
         ax.set_ylabel(unit)
         ax.legend(loc='best')

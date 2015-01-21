@@ -19,6 +19,7 @@ styles = {
         'ixgbe': 'rv--',
 }
 pktlen_pat = re.compile(r'(\d+)_rx')
+pcigen_pat = re.compile(r'G(\d)')
 
 def matched_values(pat, string):
     p = pat.search(string)
@@ -86,11 +87,14 @@ def user_plot():
             if len(out_files) == 0:
                 print >>sys.stderr, "Error: failed to find %s in %s" % (netif, resdir)
                 sys.exit(-1)
-            nic = get_nic_name(netif)
+            label = nic = get_nic_name(netif)
+            p = pcigen_pat.search(netif)
+            if p != None:
+                label = nic + ' (Gen' + p.group(1) + ')'
             unit, t = user_get_thput(nic, kind, out_files)
             x, y = zip(*sorted(t.items()))
             ax.set_ylim(ylims[kind])
-            ax.plot(x, y, styles[nic], label=nic)
+            ax.plot(x, y, styles[nic], label=label)
         ax.set_ylabel(unit)
         ax.legend(loc='best')
         outfn = '%s_%s_%s%s.png' % (test, ','.join(netifs), kind, '_' + postfix if postfix else '')

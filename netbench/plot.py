@@ -9,17 +9,10 @@ import matplotlib.pyplot as plt
 from common import *
 
 test = None
-netifs = None
+nicpairs = None
 resdir = None
 kinds = None
 postfix = None
-
-styles = {
-        'nfnewnic': 'bo-',
-        'ixgbe': 'rv--',
-}
-pktlen_pat = re.compile(r'(\d+)_rx')
-pcigen_pat = re.compile(r'G(\d)')
 
 def matched_values(pat, string):
     p = pat.search(string)
@@ -46,6 +39,7 @@ pps_func = {
         'ixgbe': netmap_pps,
 }
 def user_get_thput(nic, kind, out_files):
+    pktlen_pat = re.compile(r'(\d+)_rx')
     t = {}
     for fn in out_files:
         pktlen = int(matched_values(pktlen_pat, fn)[0])
@@ -76,28 +70,31 @@ ylims = {
 }
 
 def user_plot():
+    pcigen_pat = re.compile(r'G(\d)')
+    styles = ('bo-', 'cs--', 'k<-', 'rv--', 'g^-')
     global kinds
     if kinds == None:
         kinds = avail_kinds[test]
     for kind in kinds:
         fig, ax = plt.subplots()
         ax.set_xlabel('Packet size (Bytes)')
-        for netif in netifs:
-            out_files = glob.glob('%s/%s*-%s*_rx.out' % (resdir, test, netif))
+        for i, nicpair in enumerate(nicpairs):
+            out_files = glob.glob('%s/%s_%s*_rx.out' % (resdir, test, nicpair))
             if len(out_files) == 0:
-                print >>sys.stderr, "Error: failed to find %s in %s" % (netif, resdir)
+                print >>sys.stderr, "Error: failed to find %s in %s" % (nicpair, resdir)
                 sys.exit(-1)
-            label = nic = get_nic_name(netif)
-            p = pcigen_pat.search(netif)
-            if p != None:
-                label = nic + ' (Gen' + p.group(1) + ')'
+            label = nic = get_nic_name(nicpair)
+            gens = pcigen_pat.findall(nicpair)
+            if gens != None:
+                label = nic + ' (Gen' + gens[0] + '->Gen' + gens[1] + ')'
             unit, t = user_get_thput(nic, kind, out_files)
             x, y = zip(*sorted(t.items()))
             ax.set_ylim(ylims[kind])
-            ax.plot(x, y, styles[nic], label=label)
+            ax.grid(which='major')
+            ax.plot(x, y, styles[i], markersize=10, lw=2, label=label)
         ax.set_ylabel(unit)
         ax.legend(loc='best')
-        outfn = '%s_%s_%s%s.png' % (test, ','.join(netifs), kind, '_' + postfix if postfix else '')
+        outfn = '%s_%s_%s%s.png' % (test, ','.join(nicpairs), kind, '_' + postfix if postfix else '')
         fig.savefig(outfn)
         print '%s is generated' % outfn
 
@@ -107,9 +104,9 @@ plotfunc = {
 
 def show_usage_and_exit():
     sys.stdout = sys.stderr
-    print "%s -t <test> -d <resdir> -n <netif1[,netif2,...] [-k <metric kind1[,kind2,...]>] [-p <postfix of output>]" % sys.argv[0]
+    print "%s -t <test> -d <resdir> -n <nicpair1[,nicpair2,...] [-k <metric kind1[,kind2,...]>] [-p <postfix of output>]" % sys.argv[0]
     print "\tavailable tests:", plotfunc.keys()
-    print "\tnetif: indicates [lr]-postfixed netif included in a result file (e.g., nf0l, eth7r)"
+    print "\tnicpair: indicates [lr]-postfixed nicpair included in a result file (e.g., nf0G1l-nf0G1r)"
     print "\tkinds: test-dependent kinds of metrics as follows:"
     for t in avail_kinds:
         print "\t\t%s - %s" % (t, ' '.join(list(avail_kinds[t])))
@@ -117,7 +114,7 @@ def show_usage_and_exit():
     sys.exit(-1)
 
 def sanity_check():
-    if test == None or resdir == None or netifs == None or netifs[0] == '':
+    if test == None or resdir == None or nicpairs == None or nicpairs[0] == '':
         show_usage_and_exit()
     if kinds and not set(kinds).issubset(avail_kinds[test]):
         print >>sys.stderr, 'Error: one of %s kinds is not included in' % (','.join(kinds)), avail_kinds[test]
@@ -133,7 +130,7 @@ if __name__ == '__main__':
         if opt == '-t':
             test = arg
         if opt == '-n':
-            netifs = arg.split(',')
+            nicpairs = arg.split(',')
         if opt == '-d':
             resdir = arg
         if opt == '-k':

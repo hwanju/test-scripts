@@ -13,6 +13,7 @@ nicpairs = None
 resdir = None
 kinds = None
 postfix = None
+ext = 'png'
 
 def matched_values(pat, string):
     p = pat.search(string)
@@ -94,7 +95,7 @@ def user_plot():
             ax.plot(x, y, styles[i], markersize=10, lw=2, label=label)
         ax.set_ylabel(unit)
         ax.legend(loc='best')
-        outfn = '%s_%s_%s%s.png' % (test, ','.join(nicpairs), kind, '_' + postfix if postfix else '')
+        outfn = '%s_%s_%s%s.%s' % (test, ','.join(nicpairs), kind, '_' + postfix if postfix else '', ext)
         fig.savefig(outfn)
         print '%s is generated' % outfn
 
@@ -125,7 +126,7 @@ def sanity_check():
 
 if __name__ == '__main__':
     # parse args
-    opts, args = getopt.getopt(sys.argv[1:], 't:n:d:k:p:')
+    opts, args = getopt.getopt(sys.argv[1:], 't:n:d:k:p:f:')
     for opt, arg in opts:
         if opt == '-t':
             test = arg
@@ -137,5 +138,7 @@ if __name__ == '__main__':
             kinds = arg.split(',')
         if opt == '-N':
             postfix = arg
+        if opt == '-f':
+            ext = arg
     sanity_check()
     plotfunc[test]()
